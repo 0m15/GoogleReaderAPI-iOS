@@ -25,8 +25,13 @@
 + (NSString*)makeEditApiWithTargetEdit:(NSString *)targetEdit argDictionary:(NSDictionary *)dict;
 
 // medium level api methods
-+ (NSString *)getSubscribptionList;
++ (NSString *)editTag;
++ (NSString *)editSubscription;
++ (NSString *)getPreference;
++ (NSString *)getSubscriptionsList;
 + (NSString *)getTagList;
 + (NSString *)getUnreadCountList;
 
+// high level api methods
++ (NSString *)addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels;
 @end

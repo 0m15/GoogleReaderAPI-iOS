@@ -29,6 +29,7 @@
 static NSString *auth = @"";
 static NSString *token = @"";
 static NSHTTPURLResponse *response;
+static NSMutableDictionary *requestArgs;
 static NSError *error;
 static NSData *responseData;
 
@@ -40,6 +41,9 @@ static NSData *responseData;
 	response = [[NSHTTPURLResponse alloc] init];
 	error = [[NSError alloc] init];
 	responseData = [[NSData alloc] init];
+	requestArgs = [[NSMutableDictionary alloc] init];
+	
+	[requestArgs setValue:AGENT forKey:@"client"];
 	
 	NSUserDefaults *userdef = [NSUserDefaults standardUserDefaults];
 	if ([userdef objectForKey:GOOGLE_TOKEN_KEY]) {
@@ -109,6 +113,8 @@ static NSData *responseData;
 	return NO;
 }
 
+// get the token
+// token is like Auth, but it expires quickly
 + (NSString*)getToken:(BOOL)forced
 {
 	if(forced == YES || [token isEqualToString:@""])
@@ -117,7 +123,7 @@ static NSData *responseData;
 												   options:nil];
 		
 		NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
-		token = [stringData stringByReplacingOccurrencesOfString:@" " withString:@""];
+		token = [[stringData stringByReplacingOccurrencesOfString:@" " withString:@""] stringByReplacingOccurrencesOfString:@"//" withString:@""];
 		
 		NSLog(@"------- self.token: %@", token);
 		
@@ -166,10 +172,10 @@ static NSData *responseData;
 + (NSString *)makeApiCallWithURL:(NSString *)url options:(NSDictionary *)dict
 {
 	
-	NSString *options = [[NSString alloc] init];
+	NSString *options;
 	
 	// TODO: Add SBSJSONParser to library and parse json
-	options = @"output=json";
+	options = [NSString stringWithFormat:@"client=%@&output=json", AGENT];
 	
 	for (id key in dict) {
 		options = [options stringByAppendingFormat:[NSString stringWithFormat:@"&%@=%@", key, [[dict objectForKey:key] stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]]];
@@ -189,6 +195,32 @@ static NSData *responseData;
 
 + (NSString*)makeEditApiWithTargetEdit:(NSString *)targetEdit argDictionary:(NSDictionary *)dict
 {
+	
+	NSString *bodyRequest;
+	bodyRequest = [NSString stringWithFormat:@"client=%@&token=%@", AGENT, [self getToken:YES]];
+	
+	for (id key in dict) {
+		bodyRequest = [bodyRequest stringByAppendingFormat:[NSString stringWithFormat:@"&%@=%@", key, [[dict objectForKey:key] stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]]];
+	}
+	
+	NSString *urlString = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, targetEdit];
+	
+	[requestArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	
+	
+	[self postRequestWithURL:urlString 
+						body:bodyRequest 
+				 contentType:nil 
+					 options:requestArgs];
+	
+	NSLog(@"---------- bodyRequest: %@", bodyRequest);
+	NSLog(@"---------- URLString: %@", urlString);
+	
+	NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+	
+	NSLog(@"========== response: %@", stringData);
+	
+	
 	return nil;
 }
 
@@ -196,27 +228,75 @@ static NSData *responseData;
 #pragma mark -
 #pragma mark medium level api methods
 
-+ (NSString *)getSubscribptionList
++ (NSString *)editTag
+{
+	[requestArgs setValue:ATOM_STATE_READING_LIST forKey:@"i"];
+	[requestArgs setValue:@"edit-tags" forKey:@"ac"];
+	
+	[self makeEditApiWithTargetEdit:API_EDIT_TAG argDictionary:requestArgs];
+	
+	return nil;
+}
+
++ (NSString *)editSubscription
+{
+	[requestArgs setValue:@"edit" forKey:@"ac"];
+	[requestArgs setValue:@"null" forKey:@"item"];
+	[self makeEditApiWithTargetEdit:API_EDIT_SUBSCRIPTIONS argDictionary:requestArgs];
+}
+
++ (NSString *)getPreference
+{
+	return nil;
+}
+
++ (NSString *)getSubscriptionsList
 {
 	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_SUBSCRIPTIONS];
-	NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
-	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:options];
+	//NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
+	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
 }
 
 + (NSString *)getTagList
 {
 	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_TAG];
-	NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
-	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:options];
+	//NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
+	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
 }
 
 + (NSString *)getUnreadCountList
 {
 	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_UNREAD_COUNT];
-	NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
-	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:options];
+	//NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
+	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
 }
 
+#pragma mark -
+#pragma mark high level api methods
++ (NSString *)addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels
+{
+	//[requestArgs setValue:[url stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding] forKey:@"quickadd"];
+	//[requestArgs setValue:[self getToken:YES] forKey:@"T"];
+	[requestArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	
+	NSString *bodyRequest = [NSString stringWithFormat:@"ac=subscribe&T=%@&quickadd=%@", [self getToken:YES], [url stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]];
+	
+	for (id key in requestArgs) {
+		//bodyRequest = [bodyRequest stringByAppendingFormat:[NSString stringWithFormat:@"&%@=%@", key, [[requestArgs objectForKey:key] stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]]];
+	}
+	
+	[self postRequestWithURL:QUICK_ADD_URL
+						body:bodyRequest
+				 contentType:nil
+					 options:requestArgs];
+	
+	NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+	
+	NSLog(@"========== response: %@", stringData);
+
+	return nil;
+	
+}
 
 #pragma mark -
 #pragma mark private methods
@@ -235,7 +315,7 @@ static NSData *responseData;
 	responseData = [NSURLConnection sendSynchronousRequest:theRequest 
 										 returningResponse:&response 
 													 error:&error];
-	NSLog(@"########## response: %d", [response statusCode]);
+	NSLog(@"########## get response: %d", [response statusCode]);
 	
 }
 
@@ -258,10 +338,13 @@ static NSData *responseData;
 		}
 	}
 	
+	if (contentType != nil) {
+		[theRequest addValue:contentType forHTTPHeaderField:@"Content-type"];
+	}
+	
 	[theRequest setURL:requestURL];
 	[theRequest setTimeoutInterval:30.0];
 	[theRequest setHTTPMethod:@"POST"];
-	[theRequest addValue:contentType forHTTPHeaderField:@"Content-type"];
 	[theRequest setHTTPBody:[body dataUsingEncoding:NSASCIIStringEncoding]];
 	
 	// make request
@@ -269,7 +352,7 @@ static NSData *responseData;
 										 returningResponse:&response 
 													 error:&error];	
 	
-	NSLog(@"######### response: %d", [response statusCode]);
+	NSLog(@"######### POST response: %d", [response statusCode]);
 	
 	// request and response sending and returning objects
 }
