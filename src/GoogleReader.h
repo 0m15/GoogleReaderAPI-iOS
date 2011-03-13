@@ -24,4 +24,9 @@
 + (NSObject*)getFeedWithFeedName:(NSString *)feedName orURL:(NSString *)url;
 + (NSString*)makeEditApiWithTargetEdit:(NSString *)targetEdit argDictionary:(NSDictionary *)dict;
 
+// medium level api methods
++ (NSString *)getSubscribptionList;
++ (NSString *)getTagList;
++ (NSString *)getUnreadCountList;
+
 @end

@@ -13,9 +13,13 @@
 
 // token
 + (NSString *)getToken:(BOOL)forced;
+
 // get/post
 + (void)getRequestWithURL:(NSString *)url options:(NSDictionary*)dict;
 + (void)postRequestWithURL:(NSString *)url body:(NSString *)body contentType:(NSString *)contentType options:(NSDictionary *)dict;
+
+// api proxy
++ (NSString *)makeApiCallWithURL:(NSString *)url options:(NSDictionary *)dict;
 
 @end
 
@@ -50,7 +54,7 @@ static NSData *responseData;
 
 + (BOOL)isNeedToAuth
 {
-	return((auth.length > 0) == NO);
+	return ((auth.length > 0) == NO);
 }
 
 + (BOOL)makeLoginWithUsername:(NSString *)username password:(NSString*)passwd
@@ -159,6 +163,30 @@ static NSData *responseData;
 	return nil;
 }
 
++ (NSString *)makeApiCallWithURL:(NSString *)url options:(NSDictionary *)dict
+{
+	
+	NSString *options = [[NSString alloc] init];
+	
+	// TODO: Add SBSJSONParser to library and parse json
+	options = @"output=json";
+	
+	for (id key in dict) {
+		options = [options stringByAppendingFormat:[NSString stringWithFormat:@"&%@=%@", key, [[dict objectForKey:key] stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]]];
+		
+	}
+	
+	NSString *urlString = [NSString stringWithFormat:@"%@?%@", url, options];
+	NSLog(@">>>>>>>>>>>>>> urlString: %@", urlString);
+	
+	[self getRequestWithURL:urlString options:nil];
+	NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+	
+	NSLog(@"========== response: %@", stringData);
+	
+	return nil;
+}
+
 + (NSString*)makeEditApiWithTargetEdit:(NSString *)targetEdit argDictionary:(NSDictionary *)dict
 {
 	return nil;
@@ -166,8 +194,32 @@ static NSData *responseData;
 
 
 #pragma mark -
-#pragma mark private methods
+#pragma mark medium level api methods
 
++ (NSString *)getSubscribptionList
+{
+	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_SUBSCRIPTIONS];
+	NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
+	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:options];
+}
+
++ (NSString *)getTagList
+{
+	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_TAG];
+	NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
+	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:options];
+}
+
++ (NSString *)getUnreadCountList
+{
+	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_UNREAD_COUNT];
+	NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
+	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:options];
+}
+
+
+#pragma mark -
+#pragma mark private methods
 // get request
 + (void)getRequestWithURL:(NSString *)url 
 						options:(NSDictionary *)dict
