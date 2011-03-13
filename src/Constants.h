@@ -12,7 +12,7 @@
 #define GOOGLE_ATOM_URL @"http://www.google.com/reader/atom/"
 #define GOOGLE_API_PREFIX_URL @"http://www.google.com/reader/api/0/"
 #define GOOGLE_VIEW_URL @"http://www.google.com/reader/view/"
-#define QUICK_ADD_URL @"http://www.google.com/reader/quickadd/"
+#define QUICK_ADD_URL @"http://www.google.com/reader/api/0/subscription/quickadd"
 
 // url suffixes
 #define ATOM_GET_FEED @"feed/"
