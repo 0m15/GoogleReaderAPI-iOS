@@ -25,14 +25,14 @@ This is a work in progress.
 Warning: make this at your own risk. I remember you this is a
 very ALPHA stage.
 
-* Include "GoogleReader.h", "GoogleReader.m" and "Constants.h" in
+* Include `"GoogleReader.h"` `"GoogleReader.m"` and `"Constants.h"` in
 your XCode Project.
 * Check if user is authenticated through class method:
-    [GoogleReader isNeedAuth];
+    `[GoogleReader isNeedAuth];`
 * Authenticate user:
-    [GoogleReader makeLoginWithUsername:@"username@gmail.com" password:@"password"];
+    `[GoogleReader makeLoginWithUsername:@"username@gmail.com" password:@"password"];`
 * Get subscriptions:
-    [GoogleReader getSubscriptionsList];
+    `[GoogleReader getSubscriptionsList];`
 
 Any help is welcome.
 
