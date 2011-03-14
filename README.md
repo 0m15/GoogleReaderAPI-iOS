@@ -34,7 +34,7 @@ your XCode Project.
 * Get all Reader subscriptions:
     `[GoogleReader getSubscriptionsList];`
 * Add a new subscription:
-`[GoogleReader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];
+`[GoogleReader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`
 
 Any help is welcome.
 
