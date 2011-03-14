@@ -21,7 +21,7 @@ This is a work in progress.
 * oAuth v2.0 method support (when it will be available)
 * Unofficial documentation
 
-## Use in your project
+## Mini tutorial: use in your project
 Warning: make this at your own risk. I remember you this is a
 very ALPHA stage.
 
@@ -31,8 +31,10 @@ your XCode Project.
     `[GoogleReader isNeedAuth];`
 * Authenticate user:
     `[GoogleReader makeLoginWithUsername:@"username@gmail.com" password:@"password"];`
-* Get subscriptions:
+* Get all Reader subscriptions:
     `[GoogleReader getSubscriptionsList];`
+* Add a new subscription:
+`[GoogleReader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];
 
 Any help is welcome.
 
