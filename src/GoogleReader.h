@@ -26,7 +26,7 @@
 
 // medium level api methods
 + (NSString *)editTag;
-+ (NSString *)editSubscription;
++ (NSString *)editSubscription:(NSString *)feed withAction:(NSString *)action;
 + (NSString *)getPreference;
 + (NSString *)getSubscriptionsList;
 + (NSString *)getTagList;
@@ -34,4 +34,16 @@
 
 // high level api methods
 + (NSString *)addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels;
++ (NSString *)deleteSubscribptionWithFeedName:(NSString *)feed;
++ (NSString *)getUnreadItems;
++ (NSString *)setUnread:(NSString *)entry;
++ (NSString *)addStar:(NSString *)entry;
++ (NSString *)deleteStar:(NSString *)entry;
++ (NSString *)addPublic:(NSString *)entry;
++ (NSString *)deletePublic:(NSString *)entry;
++ (NSString *)addLabel:(NSString *)label toEntry:(NSString *)entry;
++ (NSString *)deleteLabel:(NSString *)label toEntry:(NSString *)entry;
+
++ (void)test;
+
 @end

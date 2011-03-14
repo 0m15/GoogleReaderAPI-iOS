@@ -38,12 +38,17 @@ static NSData *responseData;
 
 + (void)initialize
 {
+	NSInteger timestamp = ([[NSDate date] timeIntervalSince1970] * 1000);
+	
+	NSLog(@"------ timestamp: %d", timestamp);
+	
 	response = [[NSHTTPURLResponse alloc] init];
 	error = [[NSError alloc] init];
 	responseData = [[NSData alloc] init];
 	requestArgs = [[NSMutableDictionary alloc] init];
 	
 	[requestArgs setValue:AGENT forKey:@"client"];
+	[requestArgs setValue:[NSString stringWithFormat:@"%d", timestamp] forKey:@"ck"];
 	
 	NSUserDefaults *userdef = [NSUserDefaults standardUserDefaults];
 	if ([userdef objectForKey:GOOGLE_TOKEN_KEY]) {
@@ -64,11 +69,9 @@ static NSData *responseData;
 + (BOOL)makeLoginWithUsername:(NSString *)username password:(NSString*)passwd
 {
 	
-	NSUserDefaults *userdef = [NSUserDefaults standardUserDefaults];
-	
 	if ([username isEqualToString:@""] || [passwd isEqualToString:@""]) 
 	{
-		NSLog(@"GoogleReader -makeLogin error: please set username and password");
+		NSLog(@"GoogleReader -makeLogin error: please provide username and password");
 		return NO;
 	}
 	
@@ -87,15 +90,17 @@ static NSData *responseData;
 		responseString = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
 		statusCode = [response statusCode];
 		
-		if(statusCode == 200)
+		if(statusCode == 200) // 200 OK
 		{	
-			// 200 OK
+			
 			NSLog(@"GoogleReader.m: -makeLogin OK: %d - %@", statusCode, responseString);
 			
 			if([responseString rangeOfString:@"SID="].length > 0)
 			{
 				// set the Auth token
 				auth = [[[responseString componentsSeparatedByString:@"\n"] objectAtIndex:2] stringByReplacingOccurrencesOfString:@"Auth=" withString:@""];
+				
+				NSUserDefaults *userdef = [NSUserDefaults standardUserDefaults];
 				[userdef setObject:auth forKey:GOOGLE_TOKEN_KEY];
 				
 				return YES;
@@ -238,10 +243,19 @@ static NSData *responseData;
 	return nil;
 }
 
-+ (NSString *)editSubscription
++ (NSString *)editSubscription:(NSString *)feed withAction:(NSString *)action;
 {
 	[requestArgs setValue:@"edit" forKey:@"ac"];
 	[requestArgs setValue:@"null" forKey:@"item"];
+	
+	if (feed != nil) {
+		[requestArgs setValue:feed forKey:@"item"];
+	}
+	
+	if (action != nil) {
+		[requestArgs setValue:action forKey:@"ac"];
+	}
+	
 	[self makeEditApiWithTargetEdit:API_EDIT_SUBSCRIPTIONS argDictionary:requestArgs];
 }
 
@@ -271,19 +285,14 @@ static NSData *responseData;
 	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
 }
 
+
 #pragma mark -
 #pragma mark high level api methods
 + (NSString *)addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels
 {
-	//[requestArgs setValue:[url stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding] forKey:@"quickadd"];
-	//[requestArgs setValue:[self getToken:YES] forKey:@"T"];
 	[requestArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
 	
 	NSString *bodyRequest = [NSString stringWithFormat:@"ac=subscribe&T=%@&quickadd=%@", [self getToken:YES], [url stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]];
-	
-	for (id key in requestArgs) {
-		//bodyRequest = [bodyRequest stringByAppendingFormat:[NSString stringWithFormat:@"&%@=%@", key, [[requestArgs objectForKey:key] stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]]];
-	}
 	
 	[self postRequestWithURL:QUICK_ADD_URL
 						body:bodyRequest
@@ -292,10 +301,60 @@ static NSData *responseData;
 	
 	NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
 	
-	NSLog(@"========== response: %@", stringData);
+	NSLog(@"--------- response: %@", stringData);
 
 	return nil;
 	
+}
+
++ (NSString *)deleteSubscribptionWithFeedName:(NSString *)feed
+{
+	if (feed != nil)
+	{
+		return [self editSubscription:feed withAction:@"delete"];
+	}
+	
+	return nil;
+}
+
++ (NSString *)getUnreadItems
+{
+	return [self getUnreadCountList];
+}
+
++ (NSString *)setUnread:(NSString *)entry
+{
+	return [self editTag];
+}
+
++ (NSString *)addStar:(NSString *)entry
+{
+	return [self editTag];
+}
+
++ (NSString *)deleteStar:(NSString *)entry
+{
+	return nil;
+}
+
++ (NSString *)addPublic:(NSString *)entry
+{
+	return nil;
+}
+
++ (NSString *)deletePublic:(NSString *)entry
+{
+	return nil;
+}
+
++ (NSString *)addLabel:(NSString *)label toEntry:(NSString *)entry
+{
+	return nil;
+}
+
++ (NSString *)deleteLabel:(NSString *)label toEntry:(NSString *)entry
+{
+	return nil;
 }
 
 #pragma mark -
