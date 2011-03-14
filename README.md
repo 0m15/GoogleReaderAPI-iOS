@@ -11,11 +11,13 @@ This is a work in progress.
 
 ## Features
 * Authentication via ClientLogin
+* Synchronous requests
 * Base low-level methods 
 * Response in raw JSON strings
 
 ## TODO
 * Test case
+* Async all requests/responses
 * High-level API methods
 * Encoding of JSON responses into native NSDictionary
 * oAuth v2.0 method support (when it will be available)
