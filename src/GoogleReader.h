@@ -7,43 +7,79 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "SBJsonParser.h"
 
-@interface GoogleReader : NSObject {}
+@protocol GoogleReaderRequestDelegate
 
-// class methods
+- (void)didFinishRequest;
+- (void)GoogleReaderRequestDidFailWithError:(NSError *)error;
+- (void)GoogleReaderRequestDidLoadJSON:(NSDictionary *)dict;
+- (void)GoogleReaderRequestDidLoadFeed:(NSString *)feed;
+- (void)GoogleReaderRequestReceiveBytes:(float)partial onTotal:(float)total;
 
-// initialize
-+ (void)initialize;
+@optional
 
-// login
-+ (BOOL)isNeedToAuth;
-+ (BOOL)makeLoginWithUsername:(NSString *)username password:(NSString*)passwd;
+- (void)GoogleReaderRequestDidAuthenticateWithUser:(NSDictionary *)userDict;
+- (void)GoogleReaderRequestSendBytes:(float)partial onTotal:(float)total;
+
+@end
+
+
+@interface GoogleReader : NSObject
+{
+	// public delegate
+	id <GoogleReaderRequestDelegate> delegate;
+	
+	// private
+	SBJsonParser *JSON;
+	NSString *auth;
+	NSString *token;
+	NSURLConnection *web;
+	NSHTTPURLResponse *response;
+	NSURLResponse *URLresponse;
+	NSMutableDictionary *headerArgs;
+	NSMutableDictionary *getArgs;
+	NSMutableDictionary *postArgs;
+	NSError *error;
+	NSError *JSONerror;
+	NSMutableData *responseData;
+	NSData *staticResponseData;
+	NSNumber *expectedResponseLength;
+}
+@property(nonatomic, retain) NSURLConnection *web;
+@property(nonatomic, retain) NSMutableData *responseData;
+
+// instance methods
+- (id)init;
+- (void)setDelegate:(id)d;
+
+// authentication & authorization
+- (BOOL)isNeedToAuth;
+- (BOOL)makeLoginWithUsername:(NSString *)username password:(NSString*)passwd;
 
 // low level api methods
-+ (NSObject*)getAllFeeds;
-+ (NSObject*)getFeedWithFeedName:(NSString *)feedName orURL:(NSString *)url;
-+ (NSString*)makeEditApiWithTargetEdit:(NSString *)targetEdit argDictionary:(NSDictionary *)dict;
+- (void)getAllFeeds;
+- (void)getFeedWithFeedName:(NSString *)feedName orURL:(NSString *)url excludeTarget:(NSString *)exclude;
 
 // medium level api methods
-+ (NSString *)editTag;
-+ (NSString *)editSubscription:(NSString *)feed withAction:(NSString *)action;
-+ (NSString *)getPreference;
-+ (NSString *)getSubscriptionsList;
-+ (NSString *)getTagList;
-+ (NSString *)getUnreadCountList;
+- (void)getPreference;
+- (void)getSubscriptionsList;
+- (void)getTagList;
+- (void)getUnreadCountList;
 
 // high level api methods
-+ (NSString *)addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels;
-+ (NSString *)deleteSubscribptionWithFeedName:(NSString *)feed;
-+ (NSString *)getUnreadItems;
-+ (NSString *)setUnread:(NSString *)entry;
-+ (NSString *)addStar:(NSString *)entry;
-+ (NSString *)deleteStar:(NSString *)entry;
-+ (NSString *)addPublic:(NSString *)entry;
-+ (NSString *)deletePublic:(NSString *)entry;
-+ (NSString *)addLabel:(NSString *)label toEntry:(NSString *)entry;
-+ (NSString *)deleteLabel:(NSString *)label toEntry:(NSString *)entry;
+- (void)addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels;
+- (void)deleteSubscribptionWithFeedName:(NSString *)feed;
+- (void)getUnreadItems;
+- (void)setUnread:(NSString *)entry;
+- (void)setRead:(NSString *)entry;
+- (void)addStar:(NSString *)entry;
+- (void)deleteStar:(NSString *)entry;
+- (void)addPublic:(NSString *)entry;
+- (void)deletePublic:(NSString *)entry;
+- (void)addLabel:(NSString *)label toEntry:(NSString *)entry;
+- (void)deleteLabel:(NSString *)label toEntry:(NSString *)entry;
 
-+ (void)test;
+- (void)test;
 
 @end

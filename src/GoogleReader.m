@@ -1,72 +1,107 @@
 //
 //  GoogleReader.m
-//  lastread
+//  A wrapper around Google Reader API
 //
-//  Created by Simone on 3/13/11.
-//  Copyright 2011 Self-employed. All rights reserved.
+//  Created by Simone Carella on 3/13/11.
+//  Copyright 2011 Simone Carella. All rights reserved.
 //
 
-#import "GoogleReader.h"
 #import "Constants.h"
+#import "GoogleReader.h"
+#import "JSON.h"
+#import "NSDictionary+URLEncoding.h"
+#import "SBJsonParser.h"
 
 @interface GoogleReader(PrivateAPI)
-
 // token
-+ (NSString *)getToken:(BOOL)forced;
+- (NSString *)getToken:(BOOL)forced;
+
+// low level private api methods
+- (void)makeEditApiWithTargetEdit:(NSString *)targetEdit requestBody:(NSString *)requestBody;
+- (void)makeEditApiWithTargetEdit:(NSString *)targetEdit argDictionary:(NSDictionary *)dict;
+
+// medium level private api methods
+- (void)editTag;
+- (void)editSubscription:(NSString *)feed withAction:(NSString *)action add:(NSString *)add remove:(NSString *)remove title:(NSString *)title;
 
 // get/post
-+ (void)getRequestWithURL:(NSString *)url options:(NSDictionary*)dict;
-+ (void)postRequestWithURL:(NSString *)url body:(NSString *)body contentType:(NSString *)contentType options:(NSDictionary *)dict;
+- (void)getSynchronousRequestWithURL:(NSString *)url options:(NSDictionary *)dict;
+- (void)getRequestWithURL:(NSString *)url options:(NSDictionary*)dict;
+- (void)postRequestWithURL:(NSString *)url body:(NSString *)body contentType:(NSString *)contentType options:(NSDictionary *)dict;
+- (void)postRequestWithURL:(NSString *)url postArgs:(NSDictionary *)body headerArgs:(NSDictionary *)dict;
 
 // api proxy
-+ (NSString *)makeApiCallWithURL:(NSString *)url options:(NSDictionary *)dict;
+- (void)makeApiCallWithURL:(NSString *)url options:(NSDictionary *)dict;
+
 
 @end
 
 
 @implementation GoogleReader
 
-static NSString *auth = @"";
-static NSString *token = @"";
-static NSHTTPURLResponse *response;
-static NSMutableDictionary *requestArgs;
-static NSError *error;
-static NSData *responseData;
+@synthesize responseData, web;
 
 #pragma mark -
 #pragma mark initializer
-
-+ (void)initialize
+- (id)init
 {
-	NSInteger timestamp = ([[NSDate date] timeIntervalSince1970] * 1000);
+	self = [super init];
 	
-	NSLog(@"------ timestamp: %d", timestamp);
-	
-	response = [[NSHTTPURLResponse alloc] init];
-	error = [[NSError alloc] init];
-	responseData = [[NSData alloc] init];
-	requestArgs = [[NSMutableDictionary alloc] init];
-	
-	[requestArgs setValue:AGENT forKey:@"client"];
-	[requestArgs setValue:[NSString stringWithFormat:@"%d", timestamp] forKey:@"ck"];
-	
-	NSUserDefaults *userdef = [NSUserDefaults standardUserDefaults];
-	if ([userdef objectForKey:GOOGLE_TOKEN_KEY]) {
-		auth = [userdef objectForKey:GOOGLE_TOKEN_KEY];
+	if (self) {
+		self.web = [[NSURLConnection alloc] init];
+		NSInteger timestamp = [[NSDate date] timeIntervalSince1970] * 1000 * -1;
+		
+		NSLog(@"---------------------- timestamp: %d", timestamp * 1000 * -1);
+		
+		JSON = [[SBJsonParser alloc] init];
+		response = [[NSHTTPURLResponse alloc] init];
+		error = [[NSError alloc] init];
+		self.responseData = [NSMutableData data];
+		URLresponse = [[NSURLResponse alloc] init];
+		headerArgs = [[NSMutableDictionary alloc] init];
+		getArgs = [[NSMutableDictionary alloc] init];
+		postArgs = [[NSMutableDictionary alloc] init];
+		//expectedResponseLength = [[NSNumber alloc] init];
+		
+		[postArgs removeAllObjects];
+		
+		[headerArgs setValue:AGENT forKey:@"client"];
+		[headerArgs setValue:[NSString stringWithFormat:@"%d", timestamp] forKey:@"ck"];
+		
+		NSUserDefaults *userdef = [NSUserDefaults standardUserDefaults];
+		if ([userdef objectForKey:GOOGLE_TOKEN_KEY]) {
+			auth = [userdef objectForKey:GOOGLE_TOKEN_KEY];
+		}
+		
 	}
 	
+	return self;
 }
 
+- (void)initialize
+{
+}
+
+- (void)setDelegate:(id)d
+{
+	<GoogleReaderRequestDelegate> newDelegate = d;
+	delegate = newDelegate;
+}
+
+- (<GoogleReaderRequestDelegate>) delegate
+{
+	return delegate;
+}
 
 #pragma mark -
-#pragma mark authentication
+#pragma mark authentication & authorization
 
-+ (BOOL)isNeedToAuth
+- (BOOL)isNeedToAuth
 {
 	return ((auth.length > 0) == NO);
 }
 
-+ (BOOL)makeLoginWithUsername:(NSString *)username password:(NSString*)passwd
+- (BOOL)makeLoginWithUsername:(NSString *)username password:(NSString*)passwd
 {
 	
 	if ([username isEqualToString:@""] || [passwd isEqualToString:@""]) 
@@ -118,22 +153,20 @@ static NSData *responseData;
 	return NO;
 }
 
-// get the token
-// token is like Auth, but it expires quickly
-+ (NSString*)getToken:(BOOL)forced
+
+- (NSString*)getToken:(BOOL)forced
 {
 	if(forced == YES || [token isEqualToString:@""])
 	{
-		[self getRequestWithURL:[NSString stringWithFormat:@"%@%@?client=%@", GOOGLE_API_PREFIX_URL, API_TOKEN, AGENT] 
+		[self getSynchronousRequestWithURL:[NSString stringWithFormat:@"%@%@?client=%@", GOOGLE_API_PREFIX_URL, API_TOKEN, AGENT] 
 												   options:nil];
 		
-		NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+		NSString *stringData = [[NSString alloc] initWithData:staticResponseData encoding:NSASCIIStringEncoding];
 		token = [[stringData stringByReplacingOccurrencesOfString:@" " withString:@""] stringByReplacingOccurrencesOfString:@"//" withString:@""];
 		
 		NSLog(@"------- self.token: %@", token);
 		
 		return token;
-		
 	}
 	return token;
 }
@@ -141,15 +174,14 @@ static NSData *responseData;
 
 #pragma mark -
 #pragma mark low level api methods
-
-+ (NSObject *)getAllFeeds 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+- (void)getAllFeeds 
 {
-	return [self getFeedWithFeedName:nil orURL:nil];
+	[self getFeedWithFeedName:nil orURL:nil excludeTarget:nil];
 }
 
-+ (NSObject*)getFeedWithFeedName:(NSString *)feedName orURL:(NSString *)url
+- (void)getFeedWithFeedName:(NSString *)feedName orURL:(NSString *)url excludeTarget:(NSString *)exclude
 {
-	
 	NSString *URLstring; 
 	
 	if (url != nil) 
@@ -160,208 +192,243 @@ static NSData *responseData;
 	if (feedName == nil) 
 	{
 		URLstring = [NSString stringWithFormat:@"%@%@", GOOGLE_ATOM_URL, ATOM_STATE_READING_LIST, [feedName stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]];	
-	} else {
+	} else 
+	{
 		URLstring = [NSString stringWithFormat:@"%@%@", GOOGLE_ATOM_URL, [feedName stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]];
 	}
 	
-	[self getRequestWithURL:URLstring options:nil];					   
-	
-	NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
-	
-	//NSLog(@"========= urlString: %@", URLstring);	
-	NSLog(@"========= response: %@", stringData);
-	
-	return nil;
-}
-
-+ (NSString *)makeApiCallWithURL:(NSString *)url options:(NSDictionary *)dict
-{
-	
-	NSString *options;
-	
-	// TODO: Add SBSJSONParser to library and parse json
-	options = [NSString stringWithFormat:@"client=%@&output=json", AGENT];
-	
-	for (id key in dict) {
-		options = [options stringByAppendingFormat:[NSString stringWithFormat:@"&%@=%@", key, [[dict objectForKey:key] stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]]];
-		
+	if (exclude != nil) 
+	{
+		URLstring = [URLstring stringByAppendingFormat:@"?xt=%@", exclude];
+		//[getArgs setValue:exclude forKey:@"xt"];
 	}
 	
+	
+	[self getRequestWithURL:URLstring options:nil];	
+}
+
+- (void)makeApiCallWithURL:(NSString *)url options:(NSDictionary *)dict
+{
+	[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	
+	[getArgs setValue:@"json" forKey:@"output"];
+	[getArgs setValue:[self getToken:YES] forKey:@"token"];
+	
+	NSString *options = [getArgs URLEncodedString];
 	NSString *urlString = [NSString stringWithFormat:@"%@?%@", url, options];
+	
 	NSLog(@">>>>>>>>>>>>>> urlString: %@", urlString);
 	
 	[self getRequestWithURL:urlString options:nil];
-	NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
-	
-	NSLog(@"========== response: %@", stringData);
-	
-	return nil;
 }
 
-+ (NSString*)makeEditApiWithTargetEdit:(NSString *)targetEdit argDictionary:(NSDictionary *)dict
+- (void)makeEditApiWithTargetEdit:(NSString *)targetEdit requestBody:(NSString *)requestBody
 {
 	
-	NSString *bodyRequest;
-	bodyRequest = [NSString stringWithFormat:@"client=%@&token=%@", AGENT, [self getToken:YES]];
-	
-	for (id key in dict) {
-		bodyRequest = [bodyRequest stringByAppendingFormat:[NSString stringWithFormat:@"&%@=%@", key, [[dict objectForKey:key] stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]]];
-	}
+	[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	[postArgs setValue:[self getToken:YES] forKey:@"T"];
 	
 	NSString *urlString = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, targetEdit];
 	
-	[requestArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	[self postRequestWithURL:urlString postArgs:postArgs headerArgs:headerArgs];
 	
-	
-	[self postRequestWithURL:urlString 
-						body:bodyRequest 
-				 contentType:nil 
-					 options:requestArgs];
-	
-	NSLog(@"---------- bodyRequest: %@", bodyRequest);
-	NSLog(@"---------- URLString: %@", urlString);
-	
-	NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
-	
-	NSLog(@"========== response: %@", stringData);
-	
-	
-	return nil;
+
 }
 
 
 #pragma mark -
 #pragma mark medium level api methods
-
-+ (NSString *)editTag
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+- (void)editTag:(NSString *)feed add:(NSString *)add remove:(NSString *)remove;
 {
-	[requestArgs setValue:ATOM_STATE_READING_LIST forKey:@"i"];
-	[requestArgs setValue:@"edit-tags" forKey:@"ac"];
+	[postArgs setValue:ATOM_STATE_READING_LIST forKey:@"i"];
+	[postArgs setValue:@"edit-tags" forKey:@"ac"];
 	
-	[self makeEditApiWithTargetEdit:API_EDIT_TAG argDictionary:requestArgs];
-	
-	return nil;
-}
-
-+ (NSString *)editSubscription:(NSString *)feed withAction:(NSString *)action;
-{
-	[requestArgs setValue:@"edit" forKey:@"ac"];
-	[requestArgs setValue:@"null" forKey:@"item"];
-	
-	if (feed != nil) {
-		[requestArgs setValue:feed forKey:@"item"];
+	if (add != nil) 
+	{
+		[postArgs setValue:add forKey:@"a"];
 	}
 	
-	if (action != nil) {
-		[requestArgs setValue:action forKey:@"ac"];
+	if (remove != nil) 
+	{
+		[postArgs setValue:remove forKey:@"r"];
 	}
 	
-	[self makeEditApiWithTargetEdit:API_EDIT_SUBSCRIPTIONS argDictionary:requestArgs];
+	if (feed != nil) 
+	{
+		[postArgs setValue:feed forKey:@"i"];
+	}
+	
+	[self makeEditApiWithTargetEdit:API_EDIT_TAG requestBody:nil];
+	
 }
 
-+ (NSString *)getPreference
+- (void)editSubscription:(NSString *)feed withAction:(NSString *)action add:(NSString *)add remove:(NSString *)remove title:(NSString *)title;
 {
-	return nil;
+	//NSString *bodyRequest = [NSString stringWithFormat:@"ac=unsubscribe"]
+	NSLog(@"editSubscription: %@ - %@", feed, action);
+
+	[postArgs setValue:@"unsubscribe" forKey:@"ac"];
+	[postArgs setValue:@"null" forKey:@"s"];
+	
+	if (feed != nil) 
+	{
+		[postArgs setValue:feed forKey:@"s"];
+	}
+	
+	if (title != nil) 
+	{
+		[postArgs setValue:title forKey:@"t"];
+	}
+	
+	if (add != nil) 
+	{
+		[postArgs setValue:add forKey:@"a"];
+	}
+	
+	if (remove != nil) 
+	{
+		[postArgs setValue:remove forKey:@"r"];
+	}
+	
+	if (action != nil) 
+	{
+		[postArgs setValue:action forKey:@"ac"];
+	}
+	
+	[self makeEditApiWithTargetEdit:API_EDIT_SUBSCRIPTIONS requestBody:nil];
+
 }
 
-+ (NSString *)getSubscriptionsList
+- (void)getPreference
+{
+	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_PREFERENCES];
+	[self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
+}
+
+- (void)getSubscriptionsList
 {
 	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_SUBSCRIPTIONS];
-	//NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
-	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
+	[self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
 }
 
-+ (NSString *)getTagList
+- (void)getTagList
 {
 	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_TAG];
-	//NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
-	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
+	[self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
 }
 
-+ (NSString *)getUnreadCountList
+- (void)getUnreadCountList
 {
 	NSString *stringURL = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, API_LIST_UNREAD_COUNT];
-	//NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:AGENT,@"client",nil];
-	return [self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
+	[self makeApiCallWithURL:[NSURL URLWithString:stringURL] options:nil];
 }
 
 
 #pragma mark -
 #pragma mark high level api methods
-+ (NSString *)addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels
+- (void)addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels
 {
-	[requestArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	NSLog(@"--- addSubscription 1");
 	
-	NSString *bodyRequest = [NSString stringWithFormat:@"ac=subscribe&T=%@&quickadd=%@", [self getToken:YES], [url stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]];
+	[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
 	
-	[self postRequestWithURL:QUICK_ADD_URL
-						body:bodyRequest
-				 contentType:nil
-					 options:requestArgs];
+	[postArgs setValue:@"subscribe" forKey:@"ac"];
+	[postArgs setValue:[self getToken:YES] forKey:@"T"];
+	[postArgs setValue:[url stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding] forKey:@"quickadd"];
 	
-	NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+	NSLog(@"--- addSubscription 2");
 	
-	NSLog(@"--------- response: %@", stringData);
+	[self postRequestWithURL:QUICK_ADD_URL postArgs:postArgs headerArgs:headerArgs];
+	
+	NSLog(@"--- addSubscription 3");
+	
+	//NSString *stringData = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+	//NSString *savedFeed;
+	
+	//NSLog(@"--------------------------------------------------------------\n\nresponse: %@", stringData);
 
-	return nil;
+	//NSDictionary *returnDict = [NSDictionary dictionaryWithDictionary:[stringData JSONValue]];
+
+	/*if ([[returnDict objectForKey:@"streamId"] length] > 0) {
+		savedFeed = [returnDict objectForKey:@"streamId"];
+		
+		for (NSString *l in labels) {
+			[self editSubscription:savedFeed 
+						withAction:@"edit" 
+							   add:[NSString stringWithFormat:@"%@%@", ATOM_PREFIX_LABEL, l] 
+							remove:nil 
+							 title:nil];
+		}
+		
+		return returnDict;
+	}*/
+	
+	NSLog(@"--------- URL: %@", url);
 	
 }
 
-+ (NSString *)deleteSubscribptionWithFeedName:(NSString *)feed
-{
+- (void)deleteSubscribptionWithFeedName:(NSString *)feed
+{	
 	if (feed != nil)
 	{
-		return [self editSubscription:feed withAction:@"delete"];
+		[self editSubscription:feed withAction:@"unsubscribe" add:nil remove:nil title:nil];
 	}
 	
-	return nil;
 }
 
-+ (NSString *)getUnreadItems
+- (void)getUnreadItems
 {
-	return [self getUnreadCountList];
+	[self getFeedWithFeedName:nil orURL:nil excludeTarget:ATOM_STATE_READ];
 }
 
-+ (NSString *)setUnread:(NSString *)entry
+- (void)setRead:(NSString *)entry
 {
-	return [self editTag];
+	[self editTag:entry add:ATOM_STATE_READ remove:ATOM_STATE_UNREAD];
 }
 
-+ (NSString *)addStar:(NSString *)entry
+- (void)setUnread:(NSString *)entry
 {
-	return [self editTag];
+	[self editTag:entry add:ATOM_STATE_UNREAD remove:ATOM_STATE_READ];
 }
 
-+ (NSString *)deleteStar:(NSString *)entry
+- (void)addStar:(NSString *)entry
 {
-	return nil;
+	[self editTag:entry add:ATOM_STATE_STARRED remove:nil];
 }
 
-+ (NSString *)addPublic:(NSString *)entry
+- (void)deleteStar:(NSString *)entry
 {
-	return nil;
+	return [self editTag:entry add:nil remove:ATOM_STATE_STARRED];
 }
 
-+ (NSString *)deletePublic:(NSString *)entry
+- (void)addPublic:(NSString *)entry
 {
-	return nil;
+	return [self editTag:entry add:ATOM_STATE_BROADCAST	remove:nil];
 }
 
-+ (NSString *)addLabel:(NSString *)label toEntry:(NSString *)entry
+- (void)deletePublic:(NSString *)entry
 {
-	return nil;
+	return [self editTag:entry add:nil remove:ATOM_STATE_BROADCAST];
 }
 
-+ (NSString *)deleteLabel:(NSString *)label toEntry:(NSString *)entry
+- (void)addLabel:(NSString *)label toEntry:(NSString *)entry
 {
-	return nil;
+	return [self editTag:entry 
+			  add:[NSString stringWithFormat:@"%@%@", ATOM_PREFIX_LABEL, label] 
+		   remove:nil];
+}
+
+- (void)deleteLabel:(NSString *)label toEntry:(NSString *)entry
+{
+	return [self editTag:entry 
+			  add:nil
+		   remove:[NSString stringWithFormat:@"%@%@", ATOM_PREFIX_LABEL, label]];
 }
 
 #pragma mark -
 #pragma mark private methods
-// get request
-+ (void)getRequestWithURL:(NSString *)url 
-						options:(NSDictionary *)dict
+- (void)getSynchronousRequestWithURL:(NSString *)url options:(NSDictionary *)dict
 {
 	NSURL *requestURL = [NSURL URLWithString:url];
 	NSMutableURLRequest *theRequest = [[NSMutableURLRequest alloc] init];
@@ -371,15 +438,40 @@ static NSData *responseData;
 	[theRequest addValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forHTTPHeaderField:@"Authorization"];
 	[theRequest setURL:requestURL];
 	
-	responseData = [NSURLConnection sendSynchronousRequest:theRequest 
-										 returningResponse:&response 
-													 error:&error];
-	NSLog(@"########## get response: %d", [response statusCode]);
+	staticResponseData = [NSURLConnection sendSynchronousRequest:theRequest 
+										returningResponse:&response
+													error:&error];		
+}
+
+// get request
+- (void)getRequestWithURL:(NSString *)url 
+				  options:(NSDictionary *)dict
+{
+	NSURL *requestURL = [NSURL URLWithString:url];
+	NSMutableURLRequest *theRequest = [[NSMutableURLRequest alloc] init];
+	
+	[theRequest setHTTPMethod:@"GET"];
+	[theRequest setTimeoutInterval:30.0];
+	[theRequest addValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forHTTPHeaderField:@"Authorization"];
+	[theRequest setURL:requestURL];
+	
+	
+	NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
+	
+	NSLog(@"-------------------------- connection: %@", conn);
+	
+	self.web = conn;
+
+	[conn release];
+
+	//NSLog(@"########## get response: %d", [response statusCode]);
+	
+	
 	
 }
 
 // post request
-+ (void)postRequestWithURL:(NSString *)url 
+- (void)postRequestWithURL:(NSString *)url 
 							body:(NSString *)body 
 					 contentType:(NSString *)contentType 
 						 options:(NSDictionary *)dict
@@ -407,13 +499,145 @@ static NSData *responseData;
 	[theRequest setHTTPBody:[body dataUsingEncoding:NSASCIIStringEncoding]];
 	
 	// make request
-	responseData = [NSURLConnection sendSynchronousRequest:theRequest 
-										 returningResponse:&response 
-													 error:&error];	
+	//responseData = [NSURLConnection sendSynchronousRequest:theRequest 
+	//									 returningResponse:&response 
+	//												 error:&error];	
 	
-	NSLog(@"######### POST response: %d", [response statusCode]);
+	NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
+	self.web = conn;
+	
+	[conn release];
+	
+	NSLog(@"########## REQUEST URL: %@", url);
+	
+	
+	
 	
 	// request and response sending and returning objects
 }
 
+- (void)postRequestWithURL:(NSString *)url 
+				  postArgs:(NSDictionary *)body 
+				headerArgs:(NSDictionary *)dict
+{
+	NSString *bodyRequest = [body URLEncodedString];
+	NSURL *requestURL = [NSURL URLWithString:url];
+	NSMutableURLRequest *theRequest = [[NSMutableURLRequest alloc] init];
+	
+	NSLog(@"-------------- bodyRequest: %@", bodyRequest);
+	
+	if([dict count] > 0)
+	{
+		for (id key in dict) {
+			NSLog(@"[theRequest addValue:%@ forHTTPHeaderField:%@]", [dict valueForKey:key], key);
+			[theRequest addValue:[dict valueForKey:key] forHTTPHeaderField:key];
+		}
+	}
+	
+	[theRequest setURL:requestURL];
+	[theRequest setTimeoutInterval:30.0];
+	[theRequest setHTTPMethod:@"POST"];
+	[theRequest setHTTPBody:[bodyRequest dataUsingEncoding:NSASCIIStringEncoding]];
+	
+	NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
+	self.web = conn;
+	
+	[conn release];
+	
+}
+
+# pragma mark -
+# pragma mark NSURLConnection delegate
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)aResponse
+{
+	NSLog(@"------------------------------- connectionDidReceiveResponse");
+	expectedResponseLength = [NSNumber numberWithFloat:[aResponse expectedContentLength]];
+	URLresponse = aResponse;
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
+{	
+	NSLog(@"------------------------------- connectionDidReceiveData: %@", data);
+	//float l = [responseData length];
+	//[delegate GoogleReaderRequestReceiveBytes:l onTotal:[expectedResponseLength floatValue]];
+	
+	[self.responseData appendData:data];
+}
+
+- (void)connection:(NSURLConnection *)connection didSendBodyData:(NSInteger)bytesWritten totalBytesWritten:(NSInteger)totalBytesWritten totalBytesExpectedToWrite:(NSInteger)totalBytesExpectedToWrite;
+{
+	NSLog(@"------------------------------- connectionDidSendBodyData: %d", totalBytesWritten);
+}
+
+- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)theError
+{
+	NSLog(@"------------------------------- connectionDidFailWithError: %@", [theError localizedDescription]);
+	
+	self.responseData = nil;
+	
+	[delegate GoogleReaderRequestDidFailWithError:theError];
+}
+
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection
+{
+	NSLog(@"------------------------------- connectionDidFinishLoading: %d", [responseData length]);
+	
+	
+	// check if data is JSON parsable
+	NSString *JSONString = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+	NSError *jsonerr = nil;
+	NSDictionary *JSONdict = [JSON objectWithString:JSONString error:&jsonerr];
+	
+	if (!jsonerr) {
+		[delegate GoogleReaderRequestDidLoadJSON:JSONdict];
+	}
+	
+	NSLog(@"responseData: %@", JSONString);
+	self.responseData = nil;
+	//response = nil;
+	//error = nil;
+	//expectedResponseLength = nil;
+	self.web = nil;
+}
+
+- (void)test
+{
+	// Make better tests
+#define testFeed	@"feed/http://feeds.feedburner.com/InformationArchitectsJapan"
+#define testFeedURL @"http://feeds.feedburner.com/pttrns"
+	
+	NSArray *labels = [NSArray arrayWithObjects:@"test",@"ios-client",nil];
+	
+	NSLog(@"***************** Initializing tests\n\n");
+	
+	
+	//[self getSubscriptionsList];
+	
+	//[GoogleReader getUnreadItems];
+	
+	NSLog(@"======================================================== getFeedWithFeedName: %@", testFeed);
+	//[GoogleReader getFeedWithFeedName:testFeed orURL:nil];
+	NSLog(@"===================================================== /END getFeedWithFeedName\n\n\n");
+	
+	NSLog(@"======================================================== getAllFeeds");
+	//[GoogleReader getAllFeeds];
+	NSLog(@"===================================================== /END getAllFeeds\n\n\n");
+	
+	NSLog(@"======================================================== deleteSubscriptionWithFeedName");
+	//[self deleteSubscribptionWithFeedName:testFeed];
+	NSLog(@"=================================================== /END \n\n\n");
+	
+	NSLog(@"======================================================== getSubscribptionsList");
+	//[self getSubscriptionsList];
+	NSLog(@"===================================================== /END getSubscriptoinsList\n\n\n");
+	
+	NSLog(@"======================================================== addSubscription");
+	//[GoogleReader addSubscriptionWithURL:testFeedURL feed:nil labels:nil];
+	
+	NSLog(@"======================================================== getUnreadCount");
+	//[self getUnreadCountList];
+	NSLog(@"===================================================== /END getSubscriptoinsList\n\n\n");
+	
+	//[self getFeedWithFeedName:<#(NSString *)feedName#> orURL:<#(NSString *)url#>]
+}
 @end
