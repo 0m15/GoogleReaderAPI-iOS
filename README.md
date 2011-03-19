@@ -39,7 +39,7 @@ your XCode Project.
 
     `GoogleReader *reader = [GoogleReader alloc] init];`
     `[reader setDelegate:self];` 
-* Check if user is authenticated through class method:
+* Check if user is authenticated
 
     `[reader isNeedAuth];`
 * Authenticate user:
