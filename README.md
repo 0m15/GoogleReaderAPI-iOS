@@ -36,18 +36,21 @@ very ALPHA stage.
 * Include `"GoogleReader.h"` `"GoogleReader.m"` and `"Constants.h"` in
 your XCode Project.
 * Instantiate a new GoogleReader object and set its delegate (remember to implement protocol methods in your delegate):
-<br>
+
     `GoogleReader *reader = [GoogleReader alloc] init];`
     `[reader setDelegate:self];` 
 * Check if user is authenticated through class method:
-<br>
+
     `[reader isNeedAuth];`
 * Authenticate user:
+
     `[reader makeLoginWithUsername:@"username@gmail.com" password:@"password"];`
 * API request example: Get all Reader subscriptions
+
     `[reader getSubscriptionsList];`
 * API requext example: Add a new subscription
-`[reader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`</del>
+
+    `[reader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`</del>
 
 
 Any help is welcome.
