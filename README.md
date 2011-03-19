@@ -1,5 +1,11 @@
 # GoogleReaderAPI - iOS client
 
+## UPDATES:
+* All requests are now Async
+* Written all API methods (still need to add OC Unit Test)
+* Written a *GoogleReaderRequestDelegate* Protocol
+* Refactored all methods (bringed all methods from class methods to instance methods)
+* Added JSON parsing with SBJSON library <https://github.com/stig/json-framework/>
 This is an Objective-C wrapper around unofficial GoogleReader API.
 I'm open sourcing this library while working on a side project.
 
@@ -11,19 +17,19 @@ This is a work in progress.
 
 ## Features
 * Authentication via ClientLogin
-* Synchronous requests
-* Base low-level methods 
-* Response in raw JSON strings
+* Asynchronous requests
+* High level API methods 
+* JSON responses encoded in NSDictionary
 
 ## TODO
 * Test case
-* Async all requests/responses
-* High-level API methods
-* Encoding of JSON responses into native NSDictionary
+<strike>* Async all requests/responses</strike>
+<strike>* High-level API methods</strike>
+<strike>* Encoding of JSON responses into native NSDictionary</strike>
 * oAuth v2.0 method support (when it will be available)
 * Unofficial documentation
 
-## Mini tutorial: use in your project
+<strike>## Mini tutorial: use in your project
 Warning: make this at your own risk. I remember you this is a
 very ALPHA stage.
 
@@ -36,7 +42,8 @@ your XCode Project.
 * Get all Reader subscriptions:
     `[GoogleReader getSubscriptionsList];`
 * Add a new subscription:
-`[GoogleReader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`
+`[GoogleReader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`</strike>
+
 
 Any help is welcome.
 
