@@ -1,5 +1,7 @@
 # GoogleReaderAPI - iOS client
 
+An Objective-C wrapper around (unofficial) Google Reader API for iOS Apps. 
+
 ## UPDATES:
 * All requests are now Async
 * Written all API methods (still need to add OC Unit Test)
