@@ -2,20 +2,21 @@
 
 An Objective-C wrapper around (unofficial) Google Reader API for iOS Apps. 
 
+This is an Objective-C wrapper around unofficial GoogleReader API.
+I'm open sourcing this library while working on a side project.
+
+*DISCLAIMER:* Google has no official API for Google Reader.
+This library has been inspired by the Pyrfeed project (a python client).
+All endpoints and api methods have been discovered through reverse
+engineering. There is NO official documentation neither warranty.
+This is a work in progress.
+
 ## UPDATES:
 * All requests are now Async
 * Written all API methods (still need to add OC Unit Test)
 * Written a *GoogleReaderRequestDelegate* Protocol
 * Refactored all methods (bringed all methods from class methods to instance methods)
 * Added JSON parsing with SBJSON library <https://github.com/stig/json-framework/>
-This is an Objective-C wrapper around unofficial GoogleReader API.
-I'm open sourcing this library while working on a side project.
-
-Disclaimer: Google has no official API for Google Reader.
-This library has been inspired by the Pyrfeed project (a python client).
-All endpoints and api methods have been discovered through reverse
-engineering. There is NO official documentation neither warranty.
-This is a work in progress.
 
 ## Features
 * Authentication via ClientLogin
