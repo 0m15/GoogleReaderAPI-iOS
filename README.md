@@ -23,13 +23,13 @@ This is a work in progress.
 
 ## TODO
 * Test case
-<strike>* Async all requests/responses</strike>
-<strike>* High-level API methods</strike>
-<strike>* Encoding of JSON responses into native NSDictionary</strike>
+<del>* Async all requests/responses</del>
+<del>* High-level API methods</del>
+<del>* Encoding of JSON responses into native NSDictionary</del>
 * oAuth v2.0 method support (when it will be available)
 * Unofficial documentation
 
-<strike>## Mini tutorial: use in your project
+<del>## Mini tutorial: use in your project
 Warning: make this at your own risk. I remember you this is a
 very ALPHA stage.
 
@@ -42,7 +42,7 @@ your XCode Project.
 * Get all Reader subscriptions:
     `[GoogleReader getSubscriptionsList];`
 * Add a new subscription:
-`[GoogleReader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`</strike>
+`[GoogleReader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`</del>
 
 
 Any help is welcome.
