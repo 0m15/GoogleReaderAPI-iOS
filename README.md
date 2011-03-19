@@ -23,26 +23,29 @@ This is a work in progress.
 
 ## TODO
 * Test case
-<del>* Async all requests/responses</del>
-<del>* High-level API methods</del>
-<del>* Encoding of JSON responses into native NSDictionary</del>
+* <del>Async all requests/responses</del>
+* <del>High-level API methods</del>
+* <del>Encoding of JSON responses into native NSDictionary</del>
 * oAuth v2.0 method support (when it will be available)
 * Unofficial documentation
 
-<del>## Mini tutorial: use in your project
+## Mini tutorial: use in your project
 Warning: make this at your own risk. I remember you this is a
 very ALPHA stage.
 
 * Include `"GoogleReader.h"` `"GoogleReader.m"` and `"Constants.h"` in
 your XCode Project.
+* Instantiate a new GoogleReader object and set its delegate (remember to implement protocol methods in your delegate):
+    `GoogleReader *reader = [GoogleReader alloc] init];`
+    `[reader setDelegate:self];` 
 * Check if user is authenticated through class method:
-    `[GoogleReader isNeedAuth];`
+    `[reader isNeedAuth];`
 * Authenticate user:
-    `[GoogleReader makeLoginWithUsername:@"username@gmail.com" password:@"password"];`
-* Get all Reader subscriptions:
-    `[GoogleReader getSubscriptionsList];`
-* Add a new subscription:
-`[GoogleReader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`</del>
+    `[reader makeLoginWithUsername:@"username@gmail.com" password:@"password"];`
+* API request example: Get all Reader subscriptions
+    `[reader getSubscriptionsList];`
+* API requext example: Add a new subscription
+`[reader addSubscriptionWithURL:(NSString *)url feed:(NSString *)feed labels:(NSArray *)labels];`</del>
 
 
 Any help is welcome.
