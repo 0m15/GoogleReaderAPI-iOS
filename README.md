@@ -1,3 +1,5 @@
+<a href='http://www.pledgie.com/campaigns/15057'><img alt='Click here to lend your support to: GoogleReaderAPI-iOS and make a donation at www.pledgie.com !' src='http://www.pledgie.com/campaigns/15057.png?skin_name=chrome' border='0' /></a>
+
 # GoogleReaderAPI - iOS client
 
 An Objective-C wrapper around (unofficial) Google Reader API for iOS Apps. 
