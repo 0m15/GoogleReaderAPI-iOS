@@ -1,4 +1,4 @@
-http://pledgie.com/campaigns/15057
+<a href='http://www.pledgie.com/campaigns/15057'><img alt='Click here to lend your support to: GoogleReaderAPI-iOS and make a donation at www.pledgie.com !' src='http://www.pledgie.com/campaigns/15057.png?skin_name=chrome' border='0' /></a>
 
 # GoogleReaderAPI - iOS client
 
@@ -61,3 +61,5 @@ your XCode Project.
 Any help is welcome.
 
 Copyright 2011 Simone Carella.	
+
+<a href='http://www.pledgie.com/campaigns/15057'><img alt='Click here to lend your support to: GoogleReaderAPI-iOS and make a donation at www.pledgie.com !' src='http://www.pledgie.com/campaigns/15057.png?skin_name=chrome' border='0' /></a>
