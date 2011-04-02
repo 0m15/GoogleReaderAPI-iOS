@@ -1,4 +1,4 @@
-15057
+http://pledgie.com/campaigns/15057
 
 # GoogleReaderAPI - iOS client
 
