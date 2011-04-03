@@ -11,6 +11,7 @@
 #import "JSON.h"
 #import "NSDictionary+URLEncoding.h"
 #import "SBJsonParser.h"
+#import "GDataOAuthViewControllerTouch.h"
 
 @interface GoogleReader(PrivateAPI)
 // token
@@ -39,7 +40,7 @@
 
 @implementation GoogleReader
 
-@synthesize responseData, web;
+@synthesize responseData, web, oauthAuthentication, feedItems, requiresAuthentication;
 
 #pragma mark -
 #pragma mark initializer
@@ -53,6 +54,17 @@
 		
 		NSLog(@"---------------------- timestamp: %d", timestamp * 1000 * -1);
 		
+		feedItems = [[NSMutableArray alloc] init];
+		
+		GDataOAuthAuthentication *newAuth = [GDataOAuthAuthentication authForInstalledApp];
+
+		requiresAuthentication = ![GDataOAuthViewControllerTouch authorizeFromKeychainForName:kAppServiceName authentication:newAuth];
+		
+		if (!requiresAuthentication)
+		{
+			self.oauthAuthentication = newAuth;
+		}
+
 		JSON = [[SBJsonParser alloc] init];
 		response = [[NSHTTPURLResponse alloc] init];
 		error = [[NSError alloc] init];
@@ -67,15 +79,26 @@
 		
 		[headerArgs setValue:AGENT forKey:@"client"];
 		[headerArgs setValue:[NSString stringWithFormat:@"%d", timestamp] forKey:@"ck"];
-		
-		NSUserDefaults *userdef = [NSUserDefaults standardUserDefaults];
-		if ([userdef objectForKey:GOOGLE_TOKEN_KEY]) {
-			auth = [userdef objectForKey:GOOGLE_TOKEN_KEY];
-		}
-		
 	}
 	
 	return self;
+}
+
+- (void)dealloc
+{
+	self.web = nil;
+	self.responseData = nil;
+	
+	[feedItems release];
+	[JSON release];
+	[response release];
+	[error release];
+	[URLresponse release];
+	[headerArgs release];
+	[getArgs release];
+	[postArgs release];
+		
+	[super dealloc];
 }
 
 - (void)initialize
@@ -95,63 +118,6 @@
 
 #pragma mark -
 #pragma mark authentication & authorization
-
-- (BOOL)isNeedToAuth
-{
-	return ((auth.length > 0) == NO);
-}
-
-- (BOOL)makeLoginWithUsername:(NSString *)username password:(NSString*)passwd
-{
-	
-	if ([username isEqualToString:@""] || [passwd isEqualToString:@""]) 
-	{
-		NSLog(@"GoogleReader -makeLogin error: please provide username and password");
-		return NO;
-	}
-	
-	int statusCode = 0;
-	NSString *responseString = nil;
-	NSString *bodyRequest = [NSString stringWithFormat:@"Email=%@&Passwd=%@&service=reader&accountType=GOOGLE&source=lastread-ipad-reader",
-							 username, passwd];
-	
-	[self postRequestWithURL:GOOGLE_CLIENT_AUTH_URL 
-						body:bodyRequest 
-				 contentType:@"application/x-www-form-urlencoded" 
-					 options:nil];
-	
-	if([responseData length] > 0)
-	{
-		responseString = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
-		statusCode = [response statusCode];
-		
-		if(statusCode == 200) // 200 OK
-		{	
-			
-			NSLog(@"GoogleReader.m: -makeLogin OK: %d - %@", statusCode, responseString);
-			
-			if([responseString rangeOfString:@"SID="].length > 0)
-			{
-				// set the Auth token
-				auth = [[[responseString componentsSeparatedByString:@"\n"] objectAtIndex:2] stringByReplacingOccurrencesOfString:@"Auth=" withString:@""];
-				
-				NSUserDefaults *userdef = [NSUserDefaults standardUserDefaults];
-				[userdef setObject:auth forKey:GOOGLE_TOKEN_KEY];
-				
-				return YES;
-				
-			}
-			
-		} 
-		else 
-		{
-			NSLog(@"GoogleReader.m: -makeLogin statusCode: %d - %@", statusCode, error);
-			return NO;
-		}
-
-	}
-	return NO;
-}
 
 
 - (NSString*)getToken:(BOOL)forced
@@ -209,7 +175,7 @@
 
 - (void)makeApiCallWithURL:(NSString *)url options:(NSDictionary *)dict
 {
-	[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	//[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
 	
 	[getArgs setValue:@"json" forKey:@"output"];
 	[getArgs setValue:[self getToken:YES] forKey:@"token"];
@@ -225,7 +191,7 @@
 - (void)makeEditApiWithTargetEdit:(NSString *)targetEdit requestBody:(NSString *)requestBody
 {
 	
-	[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	//[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
 	[postArgs setValue:[self getToken:YES] forKey:@"T"];
 	
 	NSString *urlString = [NSString stringWithFormat:@"%@%@", GOOGLE_API_PREFIX_URL, targetEdit];
@@ -331,7 +297,7 @@
 {
 	NSLog(@"--- addSubscription 1");
 	
-	[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
+	//[headerArgs setValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forKey:@"Authorization"];
 	
 	[postArgs setValue:@"subscribe" forKey:@"ac"];
 	[postArgs setValue:[self getToken:YES] forKey:@"T"];
@@ -435,8 +401,9 @@
 	
 	[theRequest setHTTPMethod:@"GET"];
 	[theRequest setTimeoutInterval:30.0];
-	[theRequest addValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forHTTPHeaderField:@"Authorization"];
+	//[theRequest addValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forHTTPHeaderField:@"Authorization"];
 	[theRequest setURL:requestURL];
+	[self.oauthAuthentication authorizeRequest:theRequest];
 	
 	staticResponseData = [NSURLConnection sendSynchronousRequest:theRequest 
 										returningResponse:&response
@@ -452,9 +419,9 @@
 	
 	[theRequest setHTTPMethod:@"GET"];
 	[theRequest setTimeoutInterval:30.0];
-	[theRequest addValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forHTTPHeaderField:@"Authorization"];
+	//[theRequest addValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forHTTPHeaderField:@"Authorization"];
 	[theRequest setURL:requestURL];
-	
+	[self.oauthAuthentication authorizeRequest:theRequest];
 	
 	NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
 	
@@ -497,7 +464,7 @@
 	[theRequest setTimeoutInterval:30.0];
 	[theRequest setHTTPMethod:@"POST"];
 	[theRequest setHTTPBody:[body dataUsingEncoding:NSASCIIStringEncoding]];
-	
+	[self.oauthAuthentication authorizeRequest:theRequest];
 	// make request
 	//responseData = [NSURLConnection sendSynchronousRequest:theRequest 
 	//									 returningResponse:&response 
@@ -538,7 +505,7 @@
 	[theRequest setTimeoutInterval:30.0];
 	[theRequest setHTTPMethod:@"POST"];
 	[theRequest setHTTPBody:[bodyRequest dataUsingEncoding:NSASCIIStringEncoding]];
-	
+	[self.oauthAuthentication authorizeRequest:theRequest];
 	NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
 	self.web = conn;
 	
@@ -582,17 +549,22 @@
 {
 	NSLog(@"------------------------------- connectionDidFinishLoading: %d", [responseData length]);
 	
+	MWFeedParser *parser = [[MWFeedParser alloc] initWithData:responseData];
+	parser.delegate = self;
+	[parser parse];
 	
+#if 0
 	// check if data is JSON parsable
-	NSString *JSONString = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+	NSString *JSONString = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
 	NSError *jsonerr = nil;
 	NSDictionary *JSONdict = [JSON objectWithString:JSONString error:&jsonerr];
 	
 	if (!jsonerr) {
 		[delegate GoogleReaderRequestDidLoadJSON:JSONdict];
 	}
+#endif
 	
-	NSLog(@"responseData: %@", JSONString);
+	//NSLog(@"responseData: %@", JSONString);
 	self.responseData = nil;
 	//response = nil;
 	//error = nil;
@@ -600,44 +572,31 @@
 	self.web = nil;
 }
 
-- (void)test
+- (void)feedParser:(MWFeedParser *)parser didParseFeedInfo:(MWFeedInfo *)info
 {
-	// Make better tests
-#define testFeed	@"feed/http://feeds.feedburner.com/InformationArchitectsJapan"
-#define testFeedURL @"http://feeds.feedburner.com/pttrns"
-	
-	NSArray *labels = [NSArray arrayWithObjects:@"test",@"ios-client",nil];
-	
-	NSLog(@"***************** Initializing tests\n\n");
-	
-	
-	//[self getSubscriptionsList];
-	
-	//[GoogleReader getUnreadItems];
-	
-	NSLog(@"======================================================== getFeedWithFeedName: %@", testFeed);
-	//[GoogleReader getFeedWithFeedName:testFeed orURL:nil];
-	NSLog(@"===================================================== /END getFeedWithFeedName\n\n\n");
-	
-	NSLog(@"======================================================== getAllFeeds");
-	//[GoogleReader getAllFeeds];
-	NSLog(@"===================================================== /END getAllFeeds\n\n\n");
-	
-	NSLog(@"======================================================== deleteSubscriptionWithFeedName");
-	//[self deleteSubscribptionWithFeedName:testFeed];
-	NSLog(@"=================================================== /END \n\n\n");
-	
-	NSLog(@"======================================================== getSubscribptionsList");
-	//[self getSubscriptionsList];
-	NSLog(@"===================================================== /END getSubscriptoinsList\n\n\n");
-	
-	NSLog(@"======================================================== addSubscription");
-	//[GoogleReader addSubscriptionWithURL:testFeedURL feed:nil labels:nil];
-	
-	NSLog(@"======================================================== getUnreadCount");
-	//[self getUnreadCountList];
-	NSLog(@"===================================================== /END getSubscriptoinsList\n\n\n");
-	
-	//[self getFeedWithFeedName:<#(NSString *)feedName#> orURL:<#(NSString *)url#>]
+	NSLog(@"%s", __PRETTY_FUNCTION__);
+	NSLog(@"%@", info);
+}
+
+- (void)feedParser:(MWFeedParser *)parser didParseFeedItem:(MWFeedItem *)item
+{
+	[feedItems addObject:item];
+	NSLog(@"%s", __PRETTY_FUNCTION__);
+	NSLog(@"%@", item);
+}
+
+- (void)feedParserDidFinish:(MWFeedParser *)parser
+{
+	NSLog(@"%s", __PRETTY_FUNCTION__);
+	if (delegate && [delegate respondsToSelector:@selector(didFinishRequest)])
+	{
+		[delegate performSelector:@selector(didFinishRequest)];
+	}
+}
+
+- (void)feedParser:(MWFeedParser *)parser didFailWithError:(NSError *)err
+{
+	NSLog(@"%s", __PRETTY_FUNCTION__);
+	NSLog(@"%@", err);
 }
 @end
