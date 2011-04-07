@@ -27,7 +27,7 @@
 // get/post
 - (void)getSynchronousRequestWithURL:(NSString *)url options:(NSDictionary *)dict;
 - (void)getRequestWithURL:(NSString *)url options:(NSDictionary*)dict;
-- (void)postRequestWithURL:(NSString *)url body:(NSString *)body contentType:(NSString *)contentType options:(NSDictionary *)dict;
+- (void)postRequestWithURL:(NSString *)url body:(NSString *)body contentType:(NSString *)contentType options:(NSDictionary *)dict async:(BOOL)asynced;
 - (void)postRequestWithURL:(NSString *)url postArgs:(NSDictionary *)body headerArgs:(NSDictionary *)dict;
 
 // api proxy
@@ -40,6 +40,15 @@
 @implementation GoogleReader
 
 @synthesize responseData, web;
+
+#pragma mark -
+#pragma mark memory managemnt
+- (void)dealloc
+{
+	[responseData release];
+	[web release];
+	[super dealloc];
+}
 
 #pragma mark -
 #pragma mark initializer
@@ -80,6 +89,7 @@
 
 - (void)initialize
 {
+	
 }
 
 - (void)setDelegate:(id)d
@@ -118,11 +128,14 @@
 	[self postRequestWithURL:GOOGLE_CLIENT_AUTH_URL 
 						body:bodyRequest 
 				 contentType:@"application/x-www-form-urlencoded" 
-					 options:nil];
+					 options:nil
+					   async:NO];
 	
-	if([responseData length] > 0)
+	NSLog(@"=================== makeLogin");
+	if([staticResponseData length] > 0)
 	{
-		responseString = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+		NSLog(@"=================== makeLogin ====================== ");
+		responseString = [[NSString alloc] initWithData:staticResponseData encoding:NSASCIIStringEncoding];
 		statusCode = [response statusCode];
 		
 		if(statusCode == 200) // 200 OK
@@ -177,10 +190,10 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 - (void)getAllFeeds 
 {
-	[self getFeedWithFeedName:nil orURL:nil excludeTarget:nil];
+	[self getFeedWithFeedName:nil orURL:nil excludeTarget:nil limit:nil	continuation:nil];
 }
 
-- (void)getFeedWithFeedName:(NSString *)feedName orURL:(NSString *)url excludeTarget:(NSString *)exclude
+- (void)getFeedWithFeedName:(NSString *)feedName orURL:(NSString *)url excludeTarget:(NSString *)exclude limit:(NSString *)n continuation:(NSString *)c
 {
 	NSString *URLstring; 
 	
@@ -197,11 +210,20 @@
 		URLstring = [NSString stringWithFormat:@"%@%@", GOOGLE_ATOM_URL, [feedName stringByAddingPercentEscapesUsingEncoding:NSASCIIStringEncoding]];
 	}
 	
+	if (n != nil) {
+		URLstring = [URLstring stringByAppendingFormat:@"?n=%@", n];
+	}
+	
+	if (c != nil) {
+		URLstring = [URLstring stringByAppendingFormat:@"&c=%@", c];
+	}
+	
 	if (exclude != nil) 
 	{
-		URLstring = [URLstring stringByAppendingFormat:@"?xt=%@", exclude];
+		URLstring = [URLstring stringByAppendingFormat:@"&xt=%@", exclude];
 		//[getArgs setValue:exclude forKey:@"xt"];
 	}
+	
 	
 	
 	[self getRequestWithURL:URLstring options:nil];	
@@ -374,12 +396,11 @@
 	{
 		[self editSubscription:feed withAction:@"unsubscribe" add:nil remove:nil title:nil];
 	}
-	
 }
 
 - (void)getUnreadItems
 {
-	[self getFeedWithFeedName:nil orURL:nil excludeTarget:ATOM_STATE_READ];
+	[self getFeedWithFeedName:nil orURL:nil excludeTarget:ATOM_STATE_READ limit:nil continuation:nil];
 }
 
 - (void)setRead:(NSString *)entry
@@ -443,6 +464,27 @@
 													error:&error];		
 }
 
+- (void)syncPostRequestWithURL:(NSString *)url options:(NSDictionary *)dict {
+	NSURL *requestURL = [NSURL URLWithString:url];
+	NSMutableURLRequest *theRequest = [[NSMutableURLRequest alloc] init];
+	
+	[theRequest setHTTPMethod:@"POST"];
+	[theRequest setTimeoutInterval:30.0];
+	[theRequest addValue:[NSString stringWithFormat:@"GoogleLogin auth=%@", auth] forHTTPHeaderField:@"Authorization"];
+	[theRequest setURL:requestURL];
+	
+	
+	NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
+	
+	NSLog(@"-------------------------- connection: %@", conn);
+	NSLog(@"++++++++++++++++++++++++++ request auth: %@", auth);
+	
+	self.web = conn;
+	
+	[conn release];
+	
+}
+
 // get request
 - (void)getRequestWithURL:(NSString *)url 
 				  options:(NSDictionary *)dict
@@ -459,6 +501,7 @@
 	NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
 	
 	NSLog(@"-------------------------- connection: %@", conn);
+	NSLog(@"++++++++++++++++++++++++++ request auth: %@", auth);
 	
 	self.web = conn;
 
@@ -475,6 +518,7 @@
 							body:(NSString *)body 
 					 contentType:(NSString *)contentType 
 						 options:(NSDictionary *)dict
+							async:(BOOL)asynced
 {
 	// set request
 	NSURL *requestURL = [NSURL URLWithString:url];
@@ -503,10 +547,14 @@
 	//									 returningResponse:&response 
 	//												 error:&error];	
 	
-	NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
-	self.web = conn;
+	if (asynced) {
+		NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self startImmediately:YES];
+		self.web = conn;
+		[conn release];
+	} else {
+		staticResponseData = [NSURLConnection sendSynchronousRequest:theRequest returningResponse:&response error:&error];
+	}
 	
-	[conn release];
 	
 	NSLog(@"########## REQUEST URL: %@", url);
 	
@@ -557,7 +605,7 @@
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
 {	
-	NSLog(@"------------------------------- connectionDidReceiveData: %@", data);
+	//NSLog(@"------------------------------- connectionDidReceiveData: %@", data);
 	//float l = [responseData length];
 	//[delegate GoogleReaderRequestReceiveBytes:l onTotal:[expectedResponseLength floatValue]];
 	
@@ -566,7 +614,7 @@
 
 - (void)connection:(NSURLConnection *)connection didSendBodyData:(NSInteger)bytesWritten totalBytesWritten:(NSInteger)totalBytesWritten totalBytesExpectedToWrite:(NSInteger)totalBytesExpectedToWrite;
 {
-	NSLog(@"------------------------------- connectionDidSendBodyData: %d", totalBytesWritten);
+	//NSLog(@"------------------------------- connectionDidSendBodyData: %d", totalBytesWritten);
 }
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)theError
@@ -584,20 +632,24 @@
 	
 	
 	// check if data is JSON parsable
-	NSString *JSONString = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+	NSString *raw = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
 	NSError *jsonerr = nil;
-	NSDictionary *JSONdict = [JSON objectWithString:JSONString error:&jsonerr];
+	NSDictionary *JSONdict = [JSON objectWithString:raw error:&jsonerr];
 	
-	if (!jsonerr) {
+	if (!jsonerr) 
+	{
 		[delegate GoogleReaderRequestDidLoadJSON:JSONdict];
+	} else {
+		[delegate GoogleReaderRequestDidLoadFeed:raw];
 	}
-	
-	NSLog(@"responseData: %@", JSONString);
+
+	//NSLog(@"responseData: %@", JSONString);
 	self.responseData = nil;
+	//self.web = nil;
 	//response = nil;
 	//error = nil;
 	//expectedResponseLength = nil;
-	self.web = nil;
+	
 }
 
 - (void)test
