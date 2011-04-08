@@ -59,8 +59,8 @@ your XCode Project.
 Any help is welcome.
 
 ##Authors:
-* Aaron Brethorst (http://github.com/aaronbrethorst)
-* Simone Carella (http://github.com/zimok)
+* Aaron Brethorst (<http://github.com/aaronbrethorst>)
+* Simone Carella (<http://github.com/zimok>)
 
 Copyright 2011 Simone Carella/Aaron Brethorst.	
 
