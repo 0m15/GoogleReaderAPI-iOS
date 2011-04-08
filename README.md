@@ -1,4 +1,3 @@
-
 # GoogleReaderAPI - iOS client
 
 An Objective-C wrapper around (unofficial) Google Reader API for iOS Apps. 
@@ -59,5 +58,9 @@ your XCode Project.
 
 Any help is welcome.
 
-Copyright 2011 Simone Carella.	
+##Authors:
+* Aaron Brethorst (http://github.com/aaronbrethorst)
+* Simone Carella (http://github.com/zimok)
+
+Copyright 2011 Simone Carella/Aaron Brethorst.	
 
