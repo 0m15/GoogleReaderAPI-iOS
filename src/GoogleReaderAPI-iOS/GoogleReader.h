@@ -8,8 +8,12 @@
 
 #import <Foundation/Foundation.h>
 #import "SBJsonParser.h"
+#import "GDataOAuthAuthentication.h"
+#import "MWFeedParser.h"
 
-@protocol GoogleReaderRequestDelegate
+#define kAppServiceName @"Google Reader App"
+
+@protocol GoogleReaderRequestDelegate<NSObject>
 
 - (void)didFinishRequest;
 - (void)GoogleReaderRequestDidFailWithError:(NSError *)error;
@@ -25,15 +29,14 @@
 @end
 
 
-@interface GoogleReader : NSObject
+@interface GoogleReader : NSObject <MWFeedParserDelegate>
 {
 	// public delegate
 	id <GoogleReaderRequestDelegate> delegate;
 	
 	// private
-	SBJsonParser *JSON;
-	NSString *auth;
 	NSString *token;
+	SBJsonParser *JSON;
 	NSURLConnection *web;
 	NSHTTPURLResponse *response;
 	NSURLResponse *URLresponse;
@@ -45,17 +48,21 @@
 	NSMutableData *responseData;
 	NSData *staticResponseData;
 	NSNumber *expectedResponseLength;
+	GDataOAuthAuthentication *oauthAuthentication;
+	
+	NSMutableArray *feedItems;
+	
+	BOOL requiresAuthentication;
 }
 @property(nonatomic, retain) NSURLConnection *web;
 @property(nonatomic, retain) NSMutableData *responseData;
+@property(nonatomic, retain) GDataOAuthAuthentication *oauthAuthentication;
+@property(nonatomic, readonly) NSArray *feedItems;
+@property(readonly) BOOL requiresAuthentication;
 
 // instance methods
 - (id)init;
 - (void)setDelegate:(id)d;
-
-// authentication & authorization
-- (BOOL)isNeedToAuth;
-- (BOOL)makeLoginWithUsername:(NSString *)username password:(NSString*)passwd;
 
 // low level api methods
 - (void)getAllFeeds;
@@ -79,7 +86,5 @@
 - (void)deletePublic:(NSString *)entry;
 - (void)addLabel:(NSString *)label toEntry:(NSString *)entry;
 - (void)deleteLabel:(NSString *)label toEntry:(NSString *)entry;
-
-- (void)test;
 
 @end

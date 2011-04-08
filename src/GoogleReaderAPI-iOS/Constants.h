@@ -7,7 +7,7 @@
 //
 
 // main url endpoints
-#define GOOGLE_CLIENT_AUTH_URL @"https://www.google.com/accounts/ClientLogin?client=googlereader-ios-client"
+//#define GOOGLE_CLIENT_AUTH_URL @"https://www.google.com/accounts/ClientLogin?client=googlereader-ios-client"
 #define GOOGLE_READER_URL @"http://www.google.com/reader/"
 #define GOOGLE_ATOM_URL @"http://www.google.com/reader/atom/"
 #define GOOGLE_API_PREFIX_URL @"http://www.google.com/reader/api/0/"
@@ -42,4 +42,3 @@
 
 // other keys
 #define AGENT @"googlereader-ios-client"
-#define GOOGLE_TOKEN_KEY @"google-reader-auth-token"
