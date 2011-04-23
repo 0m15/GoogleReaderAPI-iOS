@@ -42,12 +42,10 @@ your XCode Project.
 
     `GoogleReader *reader = [GoogleReader alloc] init];`
     `[reader setDelegate:self];` 
-* Check if user is authenticated
+* Check if user needs authentication
 
     `[reader isNeedAuth];`
-* Authenticate user:
 
-    `[reader makeLoginWithUsername:@"username@gmail.com" password:@"password"];`
 * API request example: Get all Reader subscriptions
 
     `[reader getSubscriptionsList];`
