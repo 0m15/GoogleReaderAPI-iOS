@@ -1,8 +1,3 @@
-# Attention please
-I'm not commiting any more on this project. It all started as a game of a one bored night. It's buggy and misses Unit Tests.
-If you'd want to mantain it, please do a Fork, fixes the issues and I'd be very glad to merge it back as the master.
-
-
 
 # GoogleReaderAPI - iOS client
 
