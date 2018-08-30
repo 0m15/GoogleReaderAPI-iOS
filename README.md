@@ -9,8 +9,7 @@ I'm open sourcing this library while working on a side project.
 *DISCLAIMER:* Google has no official API for Google Reader.
 This library has been inspired by the Pyrfeed project (a python client).
 All endpoints and api methods have been discovered through reverse
-engineering. There is NO official documentation neither warranty.
-This is a work in progress.
+engineering.
 
 ## UPDATES:
 * All requests are now Async
